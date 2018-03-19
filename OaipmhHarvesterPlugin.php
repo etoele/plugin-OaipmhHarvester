@@ -9,12 +9,12 @@
 
 
 /** Path to plugin directory */
-defined('OAIPMH_HARVESTER_PLUGIN_DIRECTORY') 
+defined('OAIPMH_HARVESTER_PLUGIN_DIRECTORY')
     or define('OAIPMH_HARVESTER_PLUGIN_DIRECTORY', dirname(__FILE__));
 
 /** Path to plugin maps directory */
-defined('OAIPMH_HARVESTER_MAPS_DIRECTORY') 
-    or define('OAIPMH_HARVESTER_MAPS_DIRECTORY', OAIPMH_HARVESTER_PLUGIN_DIRECTORY 
+defined('OAIPMH_HARVESTER_MAPS_DIRECTORY')
+    or define('OAIPMH_HARVESTER_MAPS_DIRECTORY', OAIPMH_HARVESTER_PLUGIN_DIRECTORY
                                         . '/models/OaipmhHarvester/Harvest');
 
 require_once dirname(__FILE__) . '/functions.php';
@@ -24,15 +24,15 @@ require_once dirname(__FILE__) . '/functions.php';
  */
 class OaipmhHarvesterPlugin extends Omeka_Plugin_AbstractPlugin
 {
-    
+
     /**
      * @var array Hooks for the plugin.
      */
-    protected $_hooks = array('install', 
+    protected $_hooks = array('install',
                               'uninstall',
                               'upgrade',
-                              'define_acl', 
-                              'admin_append_to_plugin_uninstall_message', 
+                              'define_acl',
+                              'admin_append_to_plugin_uninstall_message',
                               'before_delete_item',
                               'admin_items_show_sidebar',
                               'items_browse_sql');
@@ -40,7 +40,9 @@ class OaipmhHarvesterPlugin extends Omeka_Plugin_AbstractPlugin
     /**
      * @var array Filters for the plugin.
      */
-    protected $_filters = array('admin_navigation_main');
+    protected $_filters = array(
+      'admin_navigation_main',
+      'file_ingest_validators');
 
     /**
      * @var array Options and their default values.
@@ -108,20 +110,20 @@ class OaipmhHarvesterPlugin extends Omeka_Plugin_AbstractPlugin
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;";
         $db->query($sql);
     }
-    
+
     /**
      * Uninstall the plugin.
      */
     public function hookUninstall()
     {
         $db = $this->_db;
-        
-        // drop the tables        
+
+        // drop the tables
         $sql = "DROP TABLE IF EXISTS `{$db->prefix}oaipmh_harvester_harvests`;";
         $db->query($sql);
         $sql = "DROP TABLE IF EXISTS `{$db->prefix}oaipmh_harvester_records`;";
         $db->query($sql);
-        
+
         $this->_uninstallOptions();
     }
 
@@ -149,7 +151,7 @@ SQL;
     }
     /**
      * Define the ACL.
-     * 
+     *
      * @param array $args
      */
     public function hookDefineAcl($args)
@@ -157,7 +159,7 @@ SQL;
         $acl = $args['acl']; // get the Zend_Acl
         $acl->addResource('OaipmhHarvester_Index');
     }
-    
+
     /**
      * Specify plugin uninstall message
      *
@@ -169,7 +171,7 @@ SQL;
         harvests, you will lose all harvest-specific metadata and the ability to
         re-harvest.</p>';
     }
-    
+
     /**
     * Appended to admin item show pages.
     *
@@ -180,7 +182,7 @@ SQL;
         $item = $args['item'];
         echo $this->_expose_duplicates($item);
     }
-    
+
     /**
      * Returns a view of any duplicate harvested records for an item
      *
@@ -201,7 +203,7 @@ SQL;
         }
         return get_view()->partial('index/_duplicates.php', array('items' => $items));
     }
-    
+
     /**
      * Deletes harvester record associated with a deleted item.
      *
@@ -219,7 +221,7 @@ SQL;
             release_object($record);
         }
     }
-    
+
     /**
      * Hooks into item_browse_sql to return items in a particular oaipmh record.
      *
@@ -230,7 +232,7 @@ SQL;
         $db = $this->_db;
         $select = $args['select'];
         $params = $args['params'];
-        
+
         // Filter based on duplicates of a given oaipmh record.
         $dupKey = 'oaipmh_harvester_duplicate_items';
         if (array_key_exists($dupKey, $params)) {
@@ -247,22 +249,39 @@ SQL;
             );
         }
     }
-    
+
     /**
      * Add the OAI-PMH Harvester link to the admin main navigation.
-     * 
+     *
      * @param array Navigation array.
      * @return array Filtered navigation array.
      */
     public function filterAdminNavigationMain($nav)
-    {            
+    {
         $nav[] = array(
             'label' => __('OAI-PMH Harvester'),
             'uri' => url('oaipmh-harvester'),
             'resource' => 'OaipmhHarvester_Index',
             'privilege' => 'index',
             'class' => 'nav-oai-pmh-harvester'
-        );       
+        );
         return $nav;
+    }
+
+    /**
+     * Allow upload of files with no/weird extension as it comes from DC defined Urls.
+     * See OaipmhHarvester/Harvest/OaiDc
+     *
+     * @param array validators array.
+     * @return array validators array.
+     */
+    public function filterFileIngestValidators($validators)
+    {
+        $validators = array(
+          // 'extension whitelist'=> new Omeka_Validate_File_Extension,
+          'MIME type whitelist'=> new Omeka_Validate_File_MimeType
+        );
+        // unset($validators, 'extension whitelist');
+        return $validators;
     }
 }
