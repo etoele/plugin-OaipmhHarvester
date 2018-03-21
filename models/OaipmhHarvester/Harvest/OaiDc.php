@@ -90,20 +90,42 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
         if (isset($dcMetadata->$element)) {
           foreach ($dcMetadata->$element as $rawText) {
               $text = trim($rawText);
-              ((strpos($text, 'http')  !== false) ? $url = $text : array());
+              ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
               // options for ark:/ links are thumbnail/lowres/medres/highres)
-              ((strpos($text, 'ark:')  !== false) ? $url = $text . '/highres' : array());
+              ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '/highres' : array());
               // ((strpos($text, 'ISSN')  !== false) ? $issn = $text : array());
+          }
+          if(isset($url)){
+            $fileMetadata['files'][] = array(
+              'Upload' => null,
+              'Url' => (string) $url ,
+              'source' => (string) $url,
+              // 'name'   => (string) $dcMetadata->title,
+              // 'metadata' => (isset($issn) ? (string) $issn : array()),
+            );
+            $url = undefined;
           }
         }
 
-        $fileMetadata['files'][] = array(
-          'Upload' => null,
-          'Url' => (string) $url ,
-          'source' => (string) $url,
-          // 'name'   => (string) $dcMetadata->title,
-          // 'metadata' => (isset($issn) ? (string) $issn : array()),
-        );
+        // If dc:identifier contains http link
+        // we try to get targeted file for thumbnails generation
+        $element = 'relation';
+        if (isset($dcMetadata->$element)) {
+          foreach ($dcMetadata->$element as $rawText) {
+              $text = trim($rawText);
+              ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
+              // options for ark:/ links are thumbnail/lowres/medres/highres)
+              ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '/highres' : array());
+              // ((strpos($text, 'ISSN')  !== false) ? $issn = $text : array());
+          }
+          $fileMetadata['files'][] = array(
+            'Upload' => null,
+            'Url' => (string) $url ,
+            'source' => (string) $url,
+            // 'name'   => (string) $dcMetadata->title,
+            // 'metadata' => (isset($issn) ? (string) $issn : array()),
+          );
+        }
 
         return array('itemMetadata' => $itemMetadata,
                      'elementTexts' => $elementTexts,
