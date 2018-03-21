@@ -91,9 +91,8 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
           foreach ($dcMetadata->$element as $rawText) {
               $text = trim($rawText);
               ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
-              // options for ark:/ links are thumbnail/lowres/medres/highres)
+              // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
               ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '/highres' : array());
-              // ((strpos($text, 'ISSN')  !== false) ? $issn = $text : array());
           }
           if(isset($url)){
             $fileMetadata['files'][] = array(
@@ -107,23 +106,20 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
           }
         }
 
-        // If dc:identifier contains http link
+        // If dc:relation contains http link
         // we try to get targeted file for thumbnails generation
         $element = 'relation';
         if (isset($dcMetadata->$element)) {
           foreach ($dcMetadata->$element as $rawText) {
               $text = trim($rawText);
               ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
-              // options for ark:/ links are thumbnail/lowres/medres/highres)
+              // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
               ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '/highres' : array());
-              // ((strpos($text, 'ISSN')  !== false) ? $issn = $text : array());
           }
           $fileMetadata['files'][] = array(
             'Upload' => null,
             'Url' => (string) $url ,
             'source' => (string) $url,
-            // 'name'   => (string) $dcMetadata->title,
-            // 'metadata' => (isset($issn) ? (string) $issn : array()),
           );
         }
 
