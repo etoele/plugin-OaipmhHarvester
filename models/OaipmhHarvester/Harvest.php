@@ -20,7 +20,7 @@ class OaipmhHarvester_Harvest extends Omeka_Record_AbstractRecord
     const STATUS_ERROR       = 'error';
     const STATUS_DELETED     = 'deleted';
     const STATUS_KILLED      = 'killed';
-    
+
     public $id;
     public $collection_id;
     public $base_url;
@@ -68,14 +68,14 @@ class OaipmhHarvester_Harvest extends Omeka_Record_AbstractRecord
         $query = array();
         $resumptionToken = $this->resumption_token;
         if ($resumptionToken) {
-            // Harvest a list reissue. 
+            // Harvest a list reissue.
             $query['resumptionToken'] = $resumptionToken;
-        } 
+        }
         else {
             if ($this->set_spec) {
                 // Harvest a set.
                 $query['set'] = $this->set_spec;
-            } 
+            }
             $query['metadataPrefix'] = $this->metadata_prefix;
 
             // Perform date-selective harvesting if a "from" date is
@@ -86,7 +86,7 @@ class OaipmhHarvester_Harvest extends Omeka_Record_AbstractRecord
                 $this->addStatusMessage("Resuming harvest from $oaiDate.");
             }
         }
-        
+
         $client = $this->getRequest();
         $client->setBaseUrl($this->base_url);
         $response = $client->listRecords($query);
@@ -98,7 +98,29 @@ class OaipmhHarvester_Harvest extends Omeka_Record_AbstractRecord
                 $this->addStatusMessage($response['error']['code'] . ': '
                     . $response['error']['message']);
             }
-        } 
+        }
+        return $response;
+    }
+
+    public function listSruRecords()
+    {
+        $query = array();
+
+        $client = $this->getRequest();
+        $client->setBaseUrl($this->base_url);
+        $response = $client->listSruRecords($query);
+
+        if (isset($response['error'])) {
+            if ($response['error']['code'] == 'noRecordsMatch') {
+                $this->addStatusMessage("The repository returned no records.");
+            } else {
+                $this->addStatusMessage($response['error']['code'] . ': '
+                    . $response['error']['message']);
+            }
+        }
+        if (isset($response['records'])) {
+          $this->addStatusMessage("The repository returned ". count($response['records']) ." SRU records.");
+        }
         return $response;
     }
 
@@ -109,7 +131,7 @@ class OaipmhHarvester_Harvest extends Omeka_Record_AbstractRecord
         }
         $date = $this->_getCurrentDateTime();
         $messageCodeText = $this->_getMessageCodeText($messageCode);
-        
+
         $this->status_messages .= "$delimiter$messageCodeText: $message ($date)";
         $this->save();
     }
@@ -135,7 +157,7 @@ class OaipmhHarvester_Harvest extends Omeka_Record_AbstractRecord
 
     /**
      * Return a message code text corresponding to its constant.
-     * 
+     *
      * @param int $messageCode
      * @return string
      */
@@ -152,7 +174,7 @@ class OaipmhHarvester_Harvest extends Omeka_Record_AbstractRecord
         }
         return $messageCodeText;
     }
-    
+
     /**
      * Converts the given MySQL datetime to an OAI datestamp, for
      * sending dates in OAI-PMH requests.
@@ -164,10 +186,10 @@ class OaipmhHarvester_Harvest extends Omeka_Record_AbstractRecord
     {
         return gmdate(OaipmhHarvester_Harvest_Abstract::OAI_DATE_FORMAT, strtotime($datestamp));
     }
-    
+
     /**
      * Return the current, formatted date.
-     * 
+     *
      * @return string
      */
     private function _getCurrentDateTime()

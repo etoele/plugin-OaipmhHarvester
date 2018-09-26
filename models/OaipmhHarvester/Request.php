@@ -22,7 +22,7 @@ class OaipmhHarvester_Request
      *
      * @param string $baseUrl
      */
-    public function __construct($baseUrl = null) 
+    public function __construct($baseUrl = null)
     {
         if ($baseUrl) {
             $this->setBaseUrl($baseUrl);
@@ -46,19 +46,21 @@ class OaipmhHarvester_Request
             'verb' => 'ListMetadataFormats',
         ));
         $formats = array();
-        foreach ($xml->ListMetadataFormats->metadataFormat as $format) {
-            $prefix = trim((string)$format->metadataPrefix);
-            $schema = trim((string)$format->schema);
-            $formats[$prefix] = $schema;
+        if(isset($xml->ListMetadataFormats)){
+          foreach ($xml->ListMetadataFormats->metadataFormat as $format) {
+              $prefix = trim((string)$format->metadataPrefix);
+              $schema = trim((string)$format->schema);
+              $formats[$prefix] = $schema;
+          }
         }
         /**
-         * It's important to consider that some repositories don't provide 
+         * It's important to consider that some repositories don't provide
          * repository
-         *  -wide metadata formats. Instead they only provide record level metadata 
+         *  -wide metadata formats. Instead they only provide record level metadata
          *  formats. Oai_dc is mandatory for all records, so if a
-         *  repository doesn't provide metadata formats using ListMetadataFormats, 
-         *  only expose the oai_dc prefix. For a data provider that doesn't offer 
-         *  repository-wide metadata formats, see: 
+         *  repository doesn't provide metadata formats using ListMetadataFormats,
+         *  only expose the oai_dc prefix. For a data provider that doesn't offer
+         *  repository-wide metadata formats, see:
          *  http://www.informatik.uni-stuttgart.de/cgi-bin/OAI/OAI.pl
          */
         if (empty($formats)) {
@@ -71,7 +73,7 @@ class OaipmhHarvester_Request
     /**
      * List all records for a given request.
      *
-     * @param array $query Args may include: metadataPrefix, set, 
+     * @param array $query Args may include: metadataPrefix, set,
      * resumptionToken, from.
      */
     public function listRecords(array $query = array())
@@ -91,10 +93,33 @@ class OaipmhHarvester_Request
     }
 
     /**
+     * List all records for a given SRU request.
+     *
+     * @param array $query Args may include: metadataPrefix, set,
+     * resumptionToken, from.
+     */
+    public function listSruRecords(array $query = array())
+    {
+        // keep initial Query as is & get Records
+        $xml = $this->_makeRequest($query);
+        //_log("[OaipmhHarvester] level 1 : " . $xml->children('srw', TRUE)->records->asXML(), Zend_Log::INFO);
+        $response = array(
+             'records' => $xml->children('srw',TRUE)->records->children('srw',TRUE)->record,
+            // 'records' =>  $xml->getElementsByTagName('record'),
+        );
+        if ($error = $this->_getError($xml)) {
+            $response['error'] = $error;
+        }
+
+        return $response;
+    }
+
+
+    /**
      * List all available sets from the provider.
      *
      * Resumption token can be given for incomplete lists.
-     * 
+     *
      * @param string|null $resumptionToken
      */
     public function listSets($resumptionToken = null)
@@ -109,13 +134,13 @@ class OaipmhHarvester_Request
         $retVal = array();
         try {
             $xml = $this->_makeRequest($query);
-        
-            // Handle returned errors, such as "noSetHierarchy". For a data 
-            // provider that has no set hierarchy, see: 
+
+            // Handle returned errors, such as "noSetHierarchy". For a data
+            // provider that has no set hierarchy, see:
             // http://solarphysics.livingreviews.org/register/oai
             if ($error = $this->_getError($xml)) {
                 $retVal['error'] = $error;
-                if ($error['code'] == 
+                if ($error['code'] ==
                         OaipmhHarvester_Request::ERROR_CODE_NO_SET_HIERARCHY
                 ) {
                     $sets = array();
@@ -148,7 +173,7 @@ class OaipmhHarvester_Request
     {
         if ($client === null) {
             $client = new Omeka_Http_Client();
-        }        
+        }
         $this->_client = $client;
     }
 
@@ -156,7 +181,7 @@ class OaipmhHarvester_Request
     {
         $error = array();
         if ($xml->error) {
-            $error['message'] = (string)$xml->error;   
+            $error['message'] = (string)$xml->error;
             $error['code'] = $xml->error->attributes()->code;
         }
         return $error;
@@ -180,12 +205,12 @@ class OaipmhHarvester_Request
             if ($iter === false) {
                 $errors = array();
                 foreach(libxml_get_errors() as $error) {
-                    $errors[] = trim($error->message) . ' on line ' 
-                              . $error->line . ', column ' 
+                    $errors[] = trim($error->message) . ' on line '
+                              . $error->line . ', column '
                               . $error->column;
                 }
                 _log(
-                    "[OaipmhHarvester] Could not parse XML: " 
+                    "[OaipmhHarvester] Could not parse XML: "
                     . $response->getBody()
                 );
                 $errStr = join("\n", $errors);
@@ -198,8 +223,8 @@ class OaipmhHarvester_Request
             }
             return $iter;
         } else {
-            throw new Zend_Http_Client_Exception("Invalid URL (" 
-                . $response->getStatus() . " " . $response->getMessage() 
+            throw new Zend_Http_Client_Exception("Invalid URL ("
+                . $response->getStatus() . " " . $response->getMessage()
                 . ").");
         }
     }
