@@ -71,17 +71,45 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
        // JBH If using SRU, check wether Metadata exists
        if(isset($record->recordData)){
          // _log("[OaipmhHarvester] record->recordData : " . $record->recordData->children('oai_dc', TRUE)->dc->asXML(), Zend_Log::INFO);
-         // _log("[OaipmhHarvester] record->extraRecordData : " . $record->extraRecordData->asXML(), Zend_Log::INFO);
-         // _log("[OaipmhHarvester] record->extraRecordData->thumbnail : " . $record->extraRecordData.children('thumbnail', TRUE), Zend_Log::INFO);
+
+         // _log("[OaipmhHarvester] record->extraRecordData->thumbnail : " . $record->extraRecordData->children('thumbnail', TRUE), Zend_Log::INFO);
          $dcMetadata = $record
                      ->recordData->children('oai_dc', TRUE)->dc->children('dc', TRUE);
-
-         // if($thumbnail = $record->extraRecordData.children('thumbnail', TRUE)){
-         //    _log("[OaipmhHarvester] Thumnail found : " . $thumbnail, Zend_Log::INFO);
-         //    $dcMetadata.addChild('relation', $thumbnail);
-         // }
        }
 
+
+       // file metadata preparation
+       $fileMetadata = array();
+       $fileMetadata['file_transfer_type'] = 'Url';
+       $fileMetadata['options'] = array(
+         'ignore_invalid_files' => true
+       );
+
+       if(isset($record->extraRecordData)){
+          // _log("[OaipmhHarvester] record->extraRecordData : " . $record->extraRecordData->asXML(), Zend_Log::INFO);
+          // _log("[OaipmhHarvester] record->extraRecordData->children('thumbnail') : " . (string) $record->extraRecordData['thumbnail'], Zend_Log::INFO);
+
+          foreach($record->extraRecordData->children() as $key=>$value) {
+            if($key == 'thumbnail') $thumbnail = $value;
+            if($key == 'link') $link = $value;
+          }
+
+         // Build Thumbnail address
+         if(isset($thumbnail) && isset($link)){
+             // get gallica url radical
+             preg_match('/((?:http:\/\/|https:\/\/)gallica.bnf.fr\/ark:\/([^\/]+)\/)/', $link, $matches);
+             $thumbnail = str_replace('thumbnail', 'highres.jpg', $thumbnail);
+             $link = $matches[1] . $thumbnail;
+
+            //$dcMetadata->addChild('relation', "vignette: " . $link);
+            $fileMetadata['files'][] = array(
+              'Upload' => null,
+              'Url' => (string) $link ,
+              'source' => (string) $link
+            );
+            _log("[OaipmhHarvester] Thumbnail found : " . $link, Zend_Log::INFO);
+         }
+       }
 
         $elementTexts = array();
         $elements = array('contributor', 'coverage', 'creator',
@@ -103,11 +131,6 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
         // If dc:identifier contains http link
         // we try to get targeted file for thumbnails generation
         $element = 'identifier';
-        $fileMetadata = array();
-        $fileMetadata['file_transfer_type'] = 'Url';
-        $fileMetadata['options'] = array(
-          'ignore_invalid_files' => true
-        );
         if (isset($dcMetadata->$element)) {
           foreach ($dcMetadata->$element as $rawText) {
               $text = trim($rawText);
@@ -115,18 +138,30 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
               // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
               ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
           }
-          if(isset($url)){
-            $url = str_replace('https' , 'http' , $url);
-            $fileMetadata['files'][] = array(
-              'Upload' => null,
-              'Url' => (string) $url ,
-              'source' => (string) $url,
-              // 'name'   => (string) $dcMetadata->title,
-              // 'metadata' => (isset($issn) ? (string) $issn : array()),
-            );
-            _log("[OaipmhHarvester] Element / Found FILE : " . (string) $url, Zend_Log::INFO);
-            $url = undefined;
-          }
+
+          // if(isset($url)){
+          // // if(isset($url) && ($fp = curl_init($url))){
+          //   $url = str_replace('https' , 'http' , $url);
+          //   // check if file exists
+          //   $ch = curl_init($url);
+          //   curl_setopt($ch, CURLOPT_NOBODY, true);
+          //   curl_exec($ch);
+          //   $retcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+          //   // $retcode >= 400 -> not found, $retcode = 200, found.
+          //   curl_close($ch);
+          //
+          //   if($retcode == 200){
+          //     $fileMetadata['files'][] = array(
+          //       'Upload' => null,
+          //       'Url' => (string) $url ,
+          //       'source' => (string) $url,
+          //       // 'name'   => (string) $dcMetadata->title,
+          //       // 'metadata' => (isset($issn) ? (string) $issn : array()),
+          //     );
+          //     _log("[OaipmhHarvester] Element / Found FILE : " . (string) $url, Zend_Log::INFO);
+          //   }
+          //   $url = undefined;
+          // }
         }
 
         // If dc:relation contains http link

@@ -128,13 +128,13 @@ abstract class OaipmhHarvester_Harvest_Abstract
      */
     private function _sruRecordExists($xml)
     {
-        // SRU gives bo DC Header
+        // SRU gives bot DC Header
         // $identifier = trim((string)$xml->identifier);
         if(isset($xml->recordData)){
           $identifier = $xml
                       ->recordData->children('oai_dc', TRUE)->dc->children('dc', TRUE)->identifier;
           $identifier =  trim($identifier);
-          _log("[OaipmhHarvester] _sruRecordExists /identifier : " . $identifier, Zend_Log::INFO);
+          _log("[OaipmhHarvester] _sruRecordExists / identifier : " . $identifier, Zend_Log::INFO);
         }
 
         /* Ideally, the OAI identifier would be globally-unique, but for
