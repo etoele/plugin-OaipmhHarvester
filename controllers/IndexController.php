@@ -16,14 +16,14 @@ require_once dirname(__FILE__) . '/../forms/Harvest.php';
  */
 class OaipmhHarvester_IndexController extends Omeka_Controller_AbstractActionController
 {
-    public function init() 
+    public function init()
     {
         $this->_helper->db->setDefaultModelName('OaipmhHarvester_Harvest');
     }
-    
+
     /**
      * Prepare the index view.
-     * 
+     *
      * @return void
      */
     public function indexAction()
@@ -33,30 +33,45 @@ class OaipmhHarvester_IndexController extends Omeka_Controller_AbstractActionCon
         $this->view->harvestForm = new OaipmhHarvester_Form_Harvest();
         $this->view->harvestForm->setAction($this->_helper->url('sets'));
     }
-    
+
+    /**
+     * Translates the provided Url - Armarium specific.
+     * Etoele 2019
+     *
+     * @return string
+     */
+    public function processUrl($base_url)
+    {
+        // SRU search to SRU Api
+        $orig = 'gallica.bnf.fr/services/engine/search/sru?';
+        $dest = 'gallica.bnf.fr/SRU?';
+
+        return str_replace($orig, $dest, $base_url);
+    }
+
     /**
      * Prepares the sets view.
-     * 
+     *
      * @return void
      */
     public function setsAction()
     {
-        // Get the available OAI-PMH to Omeka maps, which should correspond to 
+        // Get the available OAI-PMH to Omeka maps, which should correspond to
         // OAI-PMH metadata formats.
         $maps = $this->_getMaps();
-        
+
         $waitTime = oaipmh_harvester_config('requestThrottleSecs', 5);
         if ($waitTime) {
             $request = new OaipmhHarvester_Request_Throttler(
-                new OaipmhHarvester_Request($this->_getParam('base_url')),
+                new OaipmhHarvester_Request($this->processUrl($this->_getParam('base_url'))),
                 array('wait' => $waitTime)
             );
         } else {
             $request = new OaipmhHarvester_Request(
-                $this->_getParam('base_url')
+                $this->processUrl($this->_getParam('base_url'))
             );
         }
-        
+
         // Catch errors such as "String could not be parsed as XML"
         $extraMsg = 'Please check to be certain the URL is correctly formatted '
                   . 'for OAI-PMH harvesting.';
@@ -74,65 +89,65 @@ class OaipmhHarvester_IndexController extends Omeka_Controller_AbstractActionCon
             return $this->_helper->redirector->goto('index');
         }
 
-        /* Compare the available OAI-PMH metadataFormats with the available 
-        Omeka maps and extract only those that are common to both.         
+        /* Compare the available OAI-PMH metadataFormats with the available
+        Omeka maps and extract only those that are common to both.
         The comparison is made between the metadata schemata, not the prefixes.
         */
         $availableMaps = array_intersect($maps, $metadataFormats);
-        
-        // For a data provider that uses a resumption token for sets, see: 
+
+        // For a data provider that uses a resumption token for sets, see:
         // http://www.ajol.info/oai/
         $response = $request->listSets($this->_getParam('resumption_token'));
-        
+
         // Set the variables to the view object.
         $this->view->availableMaps   = array_combine(
             array_keys($availableMaps),
             array_keys($availableMaps)
         );
         $this->view->sets            = $response['sets'];
-        $this->view->resumptionToken = 
+        $this->view->resumptionToken =
             array_key_exists('resumptionToken', $response)
             ? $response['resumptionToken'] : false;
-        $this->view->baseUrl         = $this->_getParam('base_url'); // Watch out for injection!
+        $this->view->baseUrl         = $this->processUrl($this->_getParam('base_url')); // Watch out for injection!
         $this->view->maps            = $maps;
     }
-    
+
     /**
      * Launch the harvest process.
-     * 
+     *
      * @return void
      */
     public function harvestAction()
     {
         // Only set on re-harvest
         $harvest_id = $this->_getParam('harvest_id');
-        
+
         // If true, this is a re-harvest, all parameters will be the same
         if ($harvest_id) {
             $harvest = $this->_helper->db->getTable('OaipmhHarvester_Harvest')->find($harvest_id);
-            
+
             // Set vars for flash message
             $setSpec = $harvest->set_spec;
             $baseUrl = $harvest->base_url;
             $metadataPrefix = $harvest->metadata_prefix;
-          
+
             // Only on successfully-completed harvests: use date-selective
             // harvesting to limit results.
             if ($harvest->status == OaipmhHarvester_Harvest::STATUS_COMPLETED) {
                 $harvest->start_from = $harvest->initiated;
             } else {
                 $harvest->start_from = null;
-            } 
+            }
         } else {
-            $baseUrl        = $this->_getParam('base_url');
+            $baseUrl        = $this->processUrl($this->_getParam('base_url'));
             $metadataSpec   = $this->_getParam('metadata_spec');
             $setSpec        = $this->_getParam('set_spec');
             $setName        = $this->_getParam('set_name');
             $setDescription = $this->_getParam('set_description');
-        
+
             $metadataPrefix = $metadataSpec;
             $harvest = $this->_helper->db->getTable('OaipmhHarvester_Harvest')->findUniqueHarvest($baseUrl, $setSpec, $metadataPrefix);
-         
+
             if (!$harvest) {
                 // There is no existing identical harvest, create a new entry.
                 $harvest = new OaipmhHarvester_Harvest;
@@ -143,13 +158,13 @@ class OaipmhHarvester_IndexController extends Omeka_Controller_AbstractActionCon
                 $harvest->metadata_prefix = $metadataPrefix;
             }
         }
-            
+
         // Insert the harvest.
         $harvest->status          = OaipmhHarvester_Harvest::STATUS_QUEUED;
         $harvest->initiated       = date('Y:m:d H:i:s');
         $harvest->save();
-        
-        $jobDispatcher = Zend_Registry::get('bootstrap')->getResource('jobs');        
+
+        $jobDispatcher = Zend_Registry::get('bootstrap')->getResource('jobs');
         $jobDispatcher->setQueueName('imports');
 
         try {
@@ -174,10 +189,10 @@ class OaipmhHarvester_IndexController extends Omeka_Controller_AbstractActionCon
         $this->_helper->flashMessenger($message, 'success');
         return $this->_helper->redirector->goto('index');
     }
-    
+
     /**
      * Prepare the status view.
-     * 
+     *
      * @return void
      */
     public function statusAction()
@@ -186,10 +201,10 @@ class OaipmhHarvester_IndexController extends Omeka_Controller_AbstractActionCon
         $harvest = $this->_helper->db->getTable('OaipmhHarvester_Harvest')->find($harvestId);
         $this->view->harvest = $harvest;
     }
-    
+
     /**
      * Delete all items created during a harvest.
-     * 
+     *
      * @return void
      */
     public function deleteAction()
@@ -197,7 +212,7 @@ class OaipmhHarvester_IndexController extends Omeka_Controller_AbstractActionCon
         // Throw if harvest does not exist or access is disallowed.
         $harvestId = $this->_getParam('id');
         $harvest = $this->_helper->db->getTable('OaipmhHarvester_Harvest')->find($harvestId);
-        $jobDispatcher = Zend_Registry::get('bootstrap')->getResource('jobs');        
+        $jobDispatcher = Zend_Registry::get('bootstrap')->getResource('jobs');
         $jobDispatcher->setQueueName('imports');
         $jobDispatcher->sendLongRunning('OaipmhHarvester_DeleteJob',
             array(
@@ -208,11 +223,11 @@ class OaipmhHarvester_IndexController extends Omeka_Controller_AbstractActionCon
         $this->_helper->flashMessenger($msg, 'success');
         return $this->_helper->redirector->goto('index');
     }
-    
+
     /**
-     * Get the available OAI-PMH to Omeka maps, which should correspond to 
+     * Get the available OAI-PMH to Omeka maps, which should correspond to
      * OAI-PMH metadata formats.
-     * 
+     *
      * @return array
      */
     private function _getMaps()
@@ -223,7 +238,7 @@ class OaipmhHarvester_IndexController extends Omeka_Controller_AbstractActionCon
             if ($dirEntry->isFile() && !$dirEntry->isDot()) {
                 $filename = $dirEntry->getFilename();
                 $pathname = $dirEntry->getPathname();
-                if (preg_match('/^(.+)\.php$/', $filename, $match) 
+                if (preg_match('/^(.+)\.php$/', $filename, $match)
                     && $match[1] != 'Abstract'
                 ) {
                     // Get and set only the name of the file minus the extension.

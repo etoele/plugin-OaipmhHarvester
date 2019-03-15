@@ -99,7 +99,8 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
              // get gallica url radical
              preg_match('/((?:http:\/\/|https:\/\/)gallica.bnf.fr\/ark:\/([^\/]+)\/)/', $link, $matches);
              $thumbnail = str_replace('thumbnail', 'highres.jpg', $thumbnail);
-             $link = $matches[1] . $thumbnail;
+             $link = substr($matches[1], strrpos($matches[1], 'http')) . $thumbnail;
+             $link = substr($link, strrpos($link, 'http'));
 
             //$dcMetadata->addChild('relation', "vignette: " . $link);
             $fileMetadata['files'][] = array(
@@ -134,9 +135,9 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
         if (isset($dcMetadata->$element)) {
           foreach ($dcMetadata->$element as $rawText) {
               $text = trim($rawText);
-              ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
+              ((strpos($text, 'http')  !== false) ? $url = substr($text, strrpos($text, 'http')) : array());
               // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
-              ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
+              ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strrpos($text, 'http')) . '.highres.jpg' : array());
           }
 
           // if(isset($url)){
@@ -171,9 +172,9 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
           foreach ($dcMetadata->$element as $rawText) {
               $text = trim($rawText);
               $extension = substr($text, strrpos($text, '.') + 1);
-              ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
+              ((strpos($text, 'http')  !== false) ? $url = substr($text, strrpos($text, 'http')) : array());
               // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
-              ((strpos($text, 'ark:')  !== false && $extension  !== "thumbnail")  ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
+              ((strpos($text, 'ark:')  !== false && $extension  !== "thumbnail")  ? $url = substr($text, strrpos($text, 'http')) . '.highres.jpg' : array());
           }
           if(strpos($url, 'archivesetmanuscrits.bnf.fr') == false && strpos($url, 'catalogue.bnf.fr') == false) {
             $url = str_replace('https' , 'http' , $url);
