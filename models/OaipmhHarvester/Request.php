@@ -224,6 +224,7 @@ class OaipmhHarvester_Request
             return $iter;
         } else {
             throw new Zend_Http_Client_Exception("Invalid URL ("
+                . $this->_baseUrl . "?" . http_build_query($query) .")"
                 . $response->getStatus() . " " . $response->getMessage()
                 . ").");
         }

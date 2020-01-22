@@ -76,6 +76,15 @@ abstract class OaipmhHarvester_Harvest_Abstract
     }
 
     /**
+      * JBH - 2020-01-22 to test if url exists
+      */
+    public function is404($url) {
+       $headers = get_headers($url, 1);
+       _log("[OaipmhHarvester] Relation / url : " . (string) $url . " tested " . (string) $headers[0], Zend_Log::INFO);
+       if ($headers[0]!='HTTP/1.1 200 OK') return true; else return false;
+    }
+
+    /**
      * Abstract method that all class extentions must contain.
      *
      * @param SimpleXMLIterator The current record object
