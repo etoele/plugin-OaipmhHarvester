@@ -111,7 +111,6 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
          }
        }
 
-
         $elementTexts = array();
         $elements = array('contributor', 'coverage', 'creator',
                           'date', 'description', 'format',
@@ -128,6 +127,31 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
                 }
             }
         }
+        // JBH - update Metadata mapping fot IRHT
+        $identifier = $record->header->identifier;
+        _log("[OaipmhHarvester] Header identifier:  $identifier", Zend_Log::INFO);
+        // $this->_addStatusMessage("Processing Record identifier:  $identifier");
+        if(strpos($identifier, "irht") !== false){
+
+          unset($elementTexts['Dublin Core'][ucwords('rights')]);
+          unset($elementTexts['Dublin Core'][ucwords('date')]);
+          if (isset($dcMetadata->coverage)) {
+            _log("[OaipmhHarvester] Header coverage:  $dcMetadata->coverage", Zend_Log::INFO);
+            $elementTexts['Dublin Core'][ucwords('date')][] = array('text' => (string) trim($dcMetadata->coverage), 'html' => false);
+            //$elementTexts['Dublin Core'][ucwords('description')][] = array('text' => (string) trim($dcMetadata->coverage), 'html' => false);
+          }
+          unset($elementTexts['Dublin Core'][ucwords('coverage')]);
+
+          // unset($elementTexts['Dublin Core']['rights']);
+          // unset($elementTexts['Dublin Core']['date']);
+          // unset($elementTexts['Dublin Core']['coverage']);
+          // foreach ($dcMetadata->coverage as $rawText) {
+          //     $text = trim($rawText);
+          //     $elementTexts['Dublin Core']['date'][]
+          //         = array('text' => (string) $text, 'html' => false);
+          //     // _log("[OaipmhHarvester] $element : " . trim($rawText), Zend_Log::INFO);
+          // }
+        }
 
         // empty title management
         $element = 'description';
@@ -139,11 +163,10 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
         if(empty($title) == true && empty($text) == false){
           $elementTexts['Dublin Core'][ucwords($element)][] = array('text' => (string) $text, 'html' => false);
           $this->_addStatusMessage("Empty title replaces with Description " . (string) $text . ".");
+          //$this->_addStatusMessage("Empty title replaces with Description " . (string) $text . ".");
         }
 
-        // If dc:identifier contains http link
-        // we try to get targeted file for thumbnails generation
-        $element = 'identifier';
+        $element = 'ressource identifier';
         if (isset($dcMetadata->$element)) {
           foreach ($dcMetadata->$element as $rawText) {
               $text = trim($rawText);
@@ -151,7 +174,91 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
               // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
               ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
           }
+        }
 
+        // If dc:relation contains http link
+        // we try to get targeted file for thumbnails generation
+        $element = 'relation';
+        if (isset($dcMetadata->$element)) {
+          foreach ($dcMetadata->$element as $rawText) {
+              $text = trim($rawText);
+              $extension = substr($text, strrpos($text, '.') + 1);
+              //$fl = substr($text, strrpos($text, '/') + 1);
+              ((strpos($text, 'http')  !== false) && strpos($text, 'vignette') !== false ? $url = substr($text, strpos($text, 'http')) : array());
+              // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
+              ((strpos($text, 'ark:')  !== false && $extension == "thumbnail") ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
+              // when ark is used outside of gallica
+              ((strpos($text, 'ark:')  !== false && $extension != "thumbnail") ? $url = substr($text, strpos($text, 'http')) . '.png' : array());
+          }
+          if(strpos($url, 'archivesetmanuscrits.bnf.fr') == false && strpos($url, 'catalogue.bnf.fr') == false && empty($url) == false) {
+      			if($this->is404($url) == false) {
+      	            //$url = str_replace('https' , 'http' , $url);
+                    // when url sucks
+			$source = $url;
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_URL, $source);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+			//curl_setopt($ch, CURLOPT_SSLVERSION,3);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER,false);
+			$data = curl_exec ($ch);
+			$error = curl_error($ch);
+			curl_close ($ch);
+                        _log("[OaipmhHarvester] Curl Download from ". $url ." : " . (string) $error, Zend_Log::WARN);
+
+			$destination = "/tmp/". basename($url);
+			$file = fopen($destination, "w+");
+			fputs($file, $data);
+			fclose($file);
+			while(is_resource($file)){
+			   //Handle still open
+			   fclose($file);
+			}
+                        $url = $destination;
+			$fileMetadata['file_transfer_type'] = 'Filesystem';
+                    // when url sucks end
+      	            $fileMetadata['files'][] = array(
+      	              'Upload' => (string) null,
+      	              'Url' => (string) $url ,
+      	              'source' => (string) $url,
+      	            );
+      				_log("[OaipmhHarvester] Relation / Found FILE : " . (string) $url, Zend_Log::WARN);
+      			} else {
+      			  _log("[OaipmhHarvester] Relation / Incorrect Url, skipping : " . (string) $url, Zend_Log::INFO);
+              //$this->_addStatusMessage("Incorrect Url for ". (string) $title .", skipping : " . (string) $url);
+      			}
+            $url = 'undefined';
+          }
+        }
+
+        // if no thumbnails try to get one from identifier
+        // If dc:identifier contains http link
+        // we try to get targeted file for thumbnails generation
+        if(empty($fileMetadata['files']))
+        $element = 'identifier';
+        if (isset($dcMetadata->$element)) {
+          foreach ($dcMetadata->$element as $rawText) {
+              $text = trim($rawText);
+              ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
+              // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
+              ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
+              ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '.thumbnail.highres.jpg' : array());
+          }
+          // Gallica Ark case
+          if(strpos($url, 'gallica.bnf.fr') !== false && strpos($text, 'ark:')  !== false && empty($url) == false) {
+      			if($this->is404($url) == false) {
+      	            $url = str_replace('https' , 'http' , $url);
+      	            $fileMetadata['files'][] = array(
+      	              'Upload' => null,
+      	              'Url' => (string) $url ,
+      	              'source' => (string) $url,
+      	            );
+      				_log("[OaipmhHarvester] identifier / Found FILE : " . (string) $url, Zend_Log::INFO);
+      			} else {
+      			  _log("[OaipmhHarvester] identifier / Incorrect Url, skipping : " . (string) $url, Zend_Log::INFO);
+              //$this->_addStatusMessage("Incorrect Url for ". (string) $title .", skipping : " . (string) $url);
+      			}
+            $url = 'undefined';
+          }
           // if(isset($url)){
           // // if(isset($url) && ($fp = curl_init($url))){
           //   $url = str_replace('https' , 'http' , $url);

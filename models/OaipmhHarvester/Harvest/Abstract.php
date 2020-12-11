@@ -80,10 +80,10 @@ abstract class OaipmhHarvester_Harvest_Abstract
       */
     public function is404($url) {
        $headers = get_headers($url, 1);
-       _log("[OaipmhHarvester] Relation / url : " . (string) $url . " tested " . (string) $headers[0], Zend_Log::INFO);
-       if ($headers[0]!='HTTP/1.1 200 OK') return true; else return false;
+       _log("[OaipmhHarvester] url : " . (string) $url . " tested " . (string) $headers[0], Zend_Log::INFO);
+       //if ($headers[0]!='HTTP/1.1 200 OK') return true; else return false;
+       if(!preg_match('/(200|202|300|301|302)/', $headers[0])) return true; else return false;
     }
-
     /**
      * Abstract method that all class extentions must contain.
      *
@@ -231,6 +231,22 @@ abstract class OaipmhHarvester_Harvest_Abstract
         if ($this->isDeletedRecord($record)) {
             return;
         }
+        //Ignore (skip over) unwanted types records (Gallica).
+        $typedoc = 'undefined';
+        if (isset($record->header->setSpec)){
+          foreach($record->header->setSpec as $value) {
+            if((strpos($value, 'typedoc') !== false)) $typedoc =  substr($value, strrpos($text, 'typedoc:'));
+          }
+        }
+        if (isset($typedoc)){
+          if (strpos($typedoc, 'periodiques') !== false){
+            return;
+          } else {
+            $typedoc = substr($typedoc, strrpos($typedoc, ':')+1);
+          }
+          _log("[OaipmhHarvester] _harvestLoop / Typedoc is $typedoc", Zend_Log::INFO);
+        }
+
         $existingRecord = $this->_recordExists($record);
         $harvestedRecord = $this->_harvestRecord($record);
 
@@ -241,10 +257,18 @@ abstract class OaipmhHarvester_Harvest_Abstract
         if ($existingRecord) {
             // If datestamp has changed, update the record, otherwise ignore.
              if($existingRecord->datestamp != $record->header->datestamp) {
+            // JBH 2020-11-17 - always process existing records ?
+             //if($existingRecord->datestamp != $record->header->datestamp) {
+             if(empty($existingRecord['fileMetadata']['files'])) {
                 $this->_updateItem($existingRecord,
                                   $harvestedRecord['elementTexts'],
                                   $harvestedRecord['fileMetadata']);
              }
+             //}
+             if(empty($existingRecord['fileMetadata']['files'])){
+               _log("[OaipmhHarvester] _harvestLoop / existingRecord has no file", Zend_Log::INFO);
+             }
+            _log("[OaipmhHarvester] _harvestLoop /" . print_r($existingRecord['fileMetadata']['files'], TRUE), Zend_Log::INFO);
             release_object($existingRecord);
             _log("[OaipmhHarvester] _harvestLoop / existingRecord : release_object(\$existingRecord)", Zend_Log::INFO);
         } else {
@@ -277,6 +301,7 @@ abstract class OaipmhHarvester_Harvest_Abstract
         if ($existingRecord) {
             // No datestamp in SRU results, lets update everything
                 $this->_updateItem($existingRecord,
+            $this->_updateItem($existingRecord,
                                   $harvestedRecord['elementTexts'],
                                   $harvestedRecord['fileMetadata']);
             release_object($existingRecord);
@@ -520,6 +545,9 @@ abstract class OaipmhHarvester_Harvest_Abstract
         $delimiter = "\n\n"
     ) {
         $this->_harvest->addStatusMessage($message, $messageCode, $delimiter);
+      // JBH 2020-12-09 - avoid Mysqli statement execute error : Data too long for column 'status_messages'
+      $message = substr($message,0, 200);
+      $this->_harvest->addStatusMessage($message, $messageCode, $delimiter);
     }
 
     /**
@@ -613,7 +641,6 @@ abstract class OaipmhHarvester_Harvest_Abstract
 
     private function _stopWithError($e)
     {
-        $this->_addStatusMessage($e->getMessage(), self::MESSAGE_CODE_ERROR);
         $this->_harvest->status = OaipmhHarvester_Harvest::STATUS_ERROR;
         // Reset the harvest start_from time if an error occurs during
         // processing. Since there's no way to know exactly when the

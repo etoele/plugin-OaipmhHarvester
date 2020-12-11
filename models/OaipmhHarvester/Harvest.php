@@ -80,11 +80,14 @@ class OaipmhHarvester_Harvest extends Omeka_Record_AbstractRecord
 
             // Perform date-selective harvesting if a "from" date is
             // specified.
+            /*
             if(($startFrom = $this->start_from)) {
+                $startFrom= '2019-11-19 08:34:00';
+                $startFrom= '2019-11-19 08:34:00';
                 $oaiDate = $this->_datetimeToOai($startFrom);
                 $query['from'] = $oaiDate;
                 $this->addStatusMessage("Resuming harvest from $oaiDate.");
-            }
+            }*/
         }
 
         $client = $this->getRequest();
@@ -133,6 +136,7 @@ class OaipmhHarvester_Harvest extends Omeka_Record_AbstractRecord
         $messageCodeText = $this->_getMessageCodeText($messageCode);
 
         $this->status_messages .= "$delimiter$messageCodeText: $message ($date)";
+        //$this->status_messages = '';
         $this->save();
     }
 
