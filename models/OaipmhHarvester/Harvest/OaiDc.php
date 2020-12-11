@@ -112,6 +112,7 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
        }
 
         $elementTexts = array();
+
         $elements = array('contributor', 'coverage', 'creator',
                           'date', 'description', 'format',
                           'identifier','ressource identifier', 'language', 'publisher',
@@ -162,7 +163,6 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
         // put description in title if title empty
         if(empty($title) == true && empty($text) == false){
           $elementTexts['Dublin Core'][ucwords($element)][] = array('text' => (string) $text, 'html' => false);
-          $this->_addStatusMessage("Empty title replaces with Description " . (string) $text . ".");
           //$this->_addStatusMessage("Empty title replaces with Description " . (string) $text . ".");
         }
 
@@ -240,7 +240,6 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
               $text = trim($rawText);
               ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
               // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
-              ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
               ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '.thumbnail.highres.jpg' : array());
           }
           // Gallica Ark case
@@ -282,43 +281,6 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
           //   }
           //   $url = undefined;
           // }
-        }
-
-        $element = 'ressource identifier';
-        if (isset($dcMetadata->$element)) {
-          foreach ($dcMetadata->$element as $rawText) {
-              $text = trim($rawText);
-              ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
-              // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
-              ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
-          }
-        }
-
-        // If dc:relation contains http link
-        // we try to get targeted file for thumbnails generation
-        $element = 'relation';
-        if (isset($dcMetadata->$element)) {
-          foreach ($dcMetadata->$element as $rawText) {
-              $text = trim($rawText);
-              $extension = substr($text, strrpos($text, '.') + 1);
-              ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
-              // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
-              ((strpos($text, 'ark:')  !== false && $extension  !== "thumbnail")  ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
-          }
-          if(strpos($url, 'archivesetmanuscrits.bnf.fr') == false && strpos($url, 'catalogue.bnf.fr') == false && empty($url) == false) {
-    			if($this->is404($url) == false) {
-    	            $url = str_replace('https' , 'http' , $url);
-    	            $fileMetadata['files'][] = array(
-    	              'Upload' => null,
-    	              'Url' => (string) $url ,
-    	              'source' => (string) $url,
-    	            );
-    				_log("[OaipmhHarvester] Relation / Found FILE : " . (string) $url, Zend_Log::INFO);
-    			} else {
-    			  _log("[OaipmhHarvester] Relation / Incorrect Url, skipping : " . (string) $url, Zend_Log::INFO);
-            $this->_addStatusMessage("Incorrect Url for ". (string) $title .", skipping : " . (string) $url;
-    			}
-          }
         }
 
         return array('itemMetadata' => $itemMetadata,

@@ -256,7 +256,6 @@ abstract class OaipmhHarvester_Harvest_Abstract
         //Record has already been harvested
         if ($existingRecord) {
             // If datestamp has changed, update the record, otherwise ignore.
-             if($existingRecord->datestamp != $record->header->datestamp) {
             // JBH 2020-11-17 - always process existing records ?
              //if($existingRecord->datestamp != $record->header->datestamp) {
              if(empty($existingRecord['fileMetadata']['files'])) {
@@ -270,7 +269,6 @@ abstract class OaipmhHarvester_Harvest_Abstract
              }
             _log("[OaipmhHarvester] _harvestLoop /" . print_r($existingRecord['fileMetadata']['files'], TRUE), Zend_Log::INFO);
             release_object($existingRecord);
-            _log("[OaipmhHarvester] _harvestLoop / existingRecord : release_object(\$existingRecord)", Zend_Log::INFO);
         } else {
             _log("[OaipmhHarvester] _harvestLoop / \$this->_insertItem", Zend_Log::INFO);
             $this->_insertItem(
@@ -300,7 +298,6 @@ abstract class OaipmhHarvester_Harvest_Abstract
         //Record has already been harvested
         if ($existingRecord) {
             // No datestamp in SRU results, lets update everything
-                $this->_updateItem($existingRecord,
             $this->_updateItem($existingRecord,
                                   $harvestedRecord['elementTexts'],
                                   $harvestedRecord['fileMetadata']);
@@ -544,7 +541,6 @@ abstract class OaipmhHarvester_Harvest_Abstract
         $messageCode = null,
         $delimiter = "\n\n"
     ) {
-        $this->_harvest->addStatusMessage($message, $messageCode, $delimiter);
       // JBH 2020-12-09 - avoid Mysqli statement execute error : Data too long for column 'status_messages'
       $message = substr($message,0, 200);
       $this->_harvest->addStatusMessage($message, $messageCode, $delimiter);
@@ -641,6 +637,7 @@ abstract class OaipmhHarvester_Harvest_Abstract
 
     private function _stopWithError($e)
     {
+        $this->_addStatusMessage(substr($e->getMessage(), 0, 200), self::MESSAGE_CODE_ERROR);
         $this->_harvest->status = OaipmhHarvester_Harvest::STATUS_ERROR;
         // Reset the harvest start_from time if an error occurs during
         // processing. Since there's no way to know exactly when the
