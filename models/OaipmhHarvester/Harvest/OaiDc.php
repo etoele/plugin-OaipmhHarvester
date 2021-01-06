@@ -186,9 +186,12 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
               //$fl = substr($text, strrpos($text, '/') + 1);
               ((strpos($text, 'http')  !== false) && strpos($text, 'vignette') !== false ? $url = substr($text, strpos($text, 'http')) : array());
               // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
-              ((strpos($text, 'ark:')  !== false && $extension == "thumbnail") ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
-              // when ark is used outside of gallica
-              ((strpos($text, 'ark:')  !== false && $extension != "thumbnail") ? $url = substr($text, strpos($text, 'http')) . '.png' : array());
+              // 2021-01-06 - JBH exclude irht
+              if(strpos($identifier, "irht") == false){
+                ((strpos($text, 'ark:')  !== false && $extension == "thumbnail") == false ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
+                // when ark is used outside of gallica
+                ((strpos($text, 'ark:')  !== false && $extension != "thumbnail") == false ? $url = substr($text, strpos($text, 'http')) . '.png' : array());
+              }
           }
           if(strpos($url, 'archivesetmanuscrits.bnf.fr') == false && strpos($url, 'catalogue.bnf.fr') == false && empty($url) == false) {
       			if($this->is404($url) == false) {
@@ -197,6 +200,9 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
 			$source = $url;
 			$ch = curl_init();
 			curl_setopt($ch, CURLOPT_URL, $source);
+      // JBH 2021-01-06 - add proxy settings
+      curl_setopt($ch, CURLOPT_PROXY, 'git.etoele.com:3128');
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 			//curl_setopt($ch, CURLOPT_SSLVERSION,3);
 			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER,false);
@@ -235,12 +241,16 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
         // we try to get targeted file for thumbnails generation
         if(empty($fileMetadata['files']))
         $element = 'identifier';
+        $url = 'undefined';
         if (isset($dcMetadata->$element)) {
           foreach ($dcMetadata->$element as $rawText) {
               $text = trim($rawText);
-              ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
-              // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
-              ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '.thumbnail.highres.jpg' : array());
+              // 2021-01-06 - JBH exclude irht
+              if(strpos($identifier, "irht") == false){
+                ((strpos($text, 'http')  !== false) ? $url = substr($text, strpos($text, 'http')) : array());
+                // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
+                ((strpos($text, 'ark:')  !== false) ? $url = substr($text, strpos($text, 'http')) . '.thumbnail.highres.jpg' : array());
+              }
           }
           // Gallica Ark case
           if(strpos($url, 'gallica.bnf.fr') !== false && strpos($text, 'ark:')  !== false && empty($url) == false) {

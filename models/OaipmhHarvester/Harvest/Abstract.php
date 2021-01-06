@@ -79,10 +79,21 @@ abstract class OaipmhHarvester_Harvest_Abstract
       * JBH - 2020-01-22 to test if url exists
       */
     public function is404($url) {
-       $headers = get_headers($url, 1);
-       _log("[OaipmhHarvester] url : " . (string) $url . " tested " . (string) $headers[0], Zend_Log::INFO);
-       //if ($headers[0]!='HTTP/1.1 200 OK') return true; else return false;
-       if(!preg_match('/(200|202|300|301|302)/', $headers[0])) return true; else return false;
+      // Edit the four values below
+      $PROXY_HOST = "git.etoele.com"; // Proxy server address
+      $PROXY_PORT = "3128";    // Proxy server port
+
+      stream_context_set_default(
+       array(
+        'http' => array(
+         'proxy' => "tcp://$PROXY_HOST:$PROXY_PORT",
+         'request_fulluri' => true,
+        )
+       )
+      );
+      $headers = get_headers($url, 1);
+      _log("[OaipmhHarvester] url : " . (string) $url . " tested " . (string) $headers[0], Zend_Log::INFO);
+      if(!preg_match('/(200|202|300|301|302)/', $headers[0])) return true; else return false;
     }
     /**
      * Abstract method that all class extentions must contain.

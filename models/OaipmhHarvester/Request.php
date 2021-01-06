@@ -194,7 +194,10 @@ class OaipmhHarvester_Request
         $client->setConfig(
             array(
                 'useragent' => $this->_getUserAgent(),
-                'timeout'      => 20
+                'timeout'    => 20,
+                'adapter'    => 'Zend_Http_Client_Adapter_Curl',
+                'proxy_host' => 'git.etoele.com',
+                'proxy_port' => 3128
             )
         );
         $client->setParameterGet($query);
