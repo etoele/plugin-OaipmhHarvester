@@ -131,7 +131,7 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
         // JBH - update Metadata mapping fot IRHT
         $identifier = $record->header->identifier;
         _log("[OaipmhHarvester] Header identifier:  $identifier", Zend_Log::INFO);
-        // $this->_addStatusMessage("Processing Record identifier:  $identifier");
+        $this->_addStatusMessage("Processing Record identifier:  $identifier");
         if(strpos($identifier, "irht") !== false){
 
           unset($elementTexts['Dublin Core'][ucwords('rights')]);
@@ -178,7 +178,9 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
 
         // If dc:relation contains http link
         // we try to get targeted file for thumbnails generation
+        // problemos : vignette : https://patrimoine-numerique.ville-valenciennes.fr/in/rest/Thumb/image?id=ark:/29755/B_596066101_MS_0488/F_004&mat=ManuscriptMap
         $element = 'relation';
+        $url = '';
         if (isset($dcMetadata->$element)) {
           foreach ($dcMetadata->$element as $rawText) {
               $text = trim($rawText);
@@ -186,8 +188,11 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
               //$fl = substr($text, strrpos($text, '/') + 1);
               ((strpos($text, 'http')  !== false) && strpos($text, 'vignette') !== false ? $url = substr($text, strpos($text, 'http')) : array());
               // options for ark:/ links thumbnail suffix are /lowres/medres/highres)
+              if(strpos($text, 'http')  !== false && strpos($identifier, "valenciennes") == true){
+                ((strpos($text, 'ark:')  !== false && $extension == "thumbnail") == false ? $url = substr($text, strpos($text, 'http')) . '&size=512&'. substr($text, strrpos($text, '&') +1) .'&.highres.jpg' : array());
+              }
               // 2021-01-06 - JBH exclude irht
-              if(strpos($identifier, "irht") == false){
+              if(strpos($text, 'http')  !== false && strpos($identifier, "irht") == false && strpos($identifier, "valenciennes") == false){
                 ((strpos($text, 'ark:')  !== false && $extension == "thumbnail") == false ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
                 // when ark is used outside of gallica
                 ((strpos($text, 'ark:')  !== false && $extension != "thumbnail") == false ? $url = substr($text, strpos($text, 'http')) . '.png' : array());
@@ -199,7 +204,7 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
                 _log("[OaipmhHarvester] [irht] iif url ". $url ." : " . (string) $error, Zend_Log::WARN);
               }
           }
-          if(strpos($url, 'archivesetmanuscrits.bnf.fr') == false && strpos($url, 'catalogue.bnf.fr') == false && empty($url) == false) {
+          if((strpos($url, 'http')  !== false) && strpos($url, 'archivesetmanuscrits.bnf.fr') == false && strpos($url, 'catalogue.bnf.fr') == false && empty($url) == false) {
       			if($this->is404($url) == false) {
       	            //$url = str_replace('https' , 'http' , $url);
       // when url sucks
@@ -218,7 +223,13 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
       _log("[OaipmhHarvester] Curl Download from ". $url ." : " . (string) $error, Zend_Log::WARN);
 
       $url = str_replace(',' , '' , $url); // 2021/03/04 - remove comma
-			$destination = "/tmp/". basename($url);
+      $url = str_replace('&' , '' , $url); // 2021/03/04 - remove comma
+      $url = str_replace('=' , '/' , $url); // 2021/03/04 - remove comma
+      $destfilename = basename($url);
+      // JBH if URl has no xtension
+      // example https://patrimoine-numerique.ville-valenciennes.fr/ark:/29755/B_596066101_MS_0488/F_004
+      if(strrpos($destfilename, '.') == false) { $destfilename = 'default.jpg'; }
+			$destination = "/tmp/". $destfilename;
 			$file = fopen($destination, "w+");
 			fputs($file, $data);
 			fclose($file);
@@ -237,7 +248,7 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
       				_log("[OaipmhHarvester] Relation / Found FILE : " . (string) $url, Zend_Log::WARN);
       			} else {
       			  _log("[OaipmhHarvester] Relation / Incorrect Url, skipping : " . (string) $url, Zend_Log::INFO);
-              //$this->_addStatusMessage("Incorrect Url for ". (string) $title .", skipping : " . (string) $url);
+              $this->_addStatusMessage("Incorrect Url for ". (string) $title .", skipping : " . (string) $url);
       			}
             $url = 'undefined';
           }

@@ -132,6 +132,11 @@ class OaipmhHarvester_Harvest extends Omeka_Record_AbstractRecord
         if (0 == strlen($this->status_messages)) {
             $delimiter = '';
         }
+        // JBH 2021-03-04 - start
+        if (strlen($this->status_messages) > 50000) {
+            $this->status_messages = '';
+        }
+        // JBH 2021-03-04 - end
         $date = $this->_getCurrentDateTime();
         $messageCodeText = $this->_getMessageCodeText($messageCode);
 
