@@ -93,7 +93,7 @@ abstract class OaipmhHarvester_Harvest_Abstract
       );
       $headers = get_headers($url, 1);
       _log("[OaipmhHarvester] url : " . (string) $url . " tested " . (string) $headers[0], Zend_Log::INFO);
-      if(!preg_match('/(200|202|300|301|302)/', $headers[0])) return true; else return false;
+      if(!preg_match('/(200|202|300|301|302|421)/', $headers[0])) return true; else return false;
     }
     /**
      * Abstract method that all class extentions must contain.

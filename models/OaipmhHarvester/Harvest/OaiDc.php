@@ -191,12 +191,18 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
                 ((strpos($text, 'ark:')  !== false && $extension == "thumbnail") == false ? $url = substr($text, strpos($text, 'http')) . '.highres.jpg' : array());
                 // when ark is used outside of gallica
                 ((strpos($text, 'ark:')  !== false && $extension != "thumbnail") == false ? $url = substr($text, strpos($text, 'http')) . '.png' : array());
+              } else {
+                // IRHT case of small pictures coming from iiif
+                // example url : https://iiif.irht.cnrs.fr/iiif/France/Laon/Bibliotheque_municipale/024086201_MS0153/DEPOT/024086201_MS0153_0001/full/200,/0/default.jpg
+                ((strpos($text, 'http')  !== false) && strpos($text, 'iiif.irht.cnrs.fr') !== false ? $url = substr($text, strpos($text, 'http')) : array());
+                $url = str_replace('/200,/' , '/1200,/' , $url);
+                _log("[OaipmhHarvester] [irht] iif url ". $url ." : " . (string) $error, Zend_Log::WARN);
               }
           }
           if(strpos($url, 'archivesetmanuscrits.bnf.fr') == false && strpos($url, 'catalogue.bnf.fr') == false && empty($url) == false) {
       			if($this->is404($url) == false) {
       	            //$url = str_replace('https' , 'http' , $url);
-                    // when url sucks
+      // when url sucks
 			$source = $url;
 			$ch = curl_init();
 			curl_setopt($ch, CURLOPT_URL, $source);
@@ -209,8 +215,9 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
 			$data = curl_exec ($ch);
 			$error = curl_error($ch);
 			curl_close ($ch);
-                        _log("[OaipmhHarvester] Curl Download from ". $url ." : " . (string) $error, Zend_Log::WARN);
+      _log("[OaipmhHarvester] Curl Download from ". $url ." : " . (string) $error, Zend_Log::WARN);
 
+      $url = str_replace(',' , '' , $url); // 2021/03/04 - remove comma
 			$destination = "/tmp/". basename($url);
 			$file = fopen($destination, "w+");
 			fputs($file, $data);
@@ -219,9 +226,9 @@ class OaipmhHarvester_Harvest_OaiDc extends OaipmhHarvester_Harvest_Abstract
 			   //Handle still open
 			   fclose($file);
 			}
-                        $url = $destination;
+      $url = $destination;
 			$fileMetadata['file_transfer_type'] = 'Filesystem';
-                    // when url sucks end
+      // when url sucks end
       	            $fileMetadata['files'][] = array(
       	              'Upload' => (string) null,
       	              'Url' => (string) $url ,
